@@ -644,7 +644,10 @@ async function processAction(actionText, displayText) {
     if(result.combat_result) {
       const cr = result.combat_result;
       const isSmoosh = actionText.includes('FOOT SMOOSH');
-      const playerDmg = isSmoosh ? (cr.damage * 3 + rollDice(20)) : Math.max(cr.damage, rollDice(8) + state.str);
+      const levelMult = 1 + (state.level - 1) * 0.3;
+      const playerDmg = isSmoosh
+        ? Math.floor((cr.damage * 3 + rollDice(20)) * levelMult)
+        : Math.floor(Math.max(cr.damage, rollDice(8) + state.str) * levelMult);
       html += `<br>${diceHTML(isSmoosh ? 'Smoosh Roll' : 'Attack', attackRoll, 20)}`;
       if(cr.hit || isSmoosh) {
         html += `<br><div class="entry-combat" style="${isSmoosh ? 'color:#ff6600;font-size:14px;' : ''}">
@@ -705,8 +708,8 @@ async function processAction(actionText, displayText) {
         state.xp = state.xp - state.xpNext;
         state.xpNext = Math.floor(state.xpNext * 1.6);
         state.maxHp += 15; state.hp = state.maxHp;
-        state.str += 1; state.dex += 1;
-        html += systemNotif(`[LEVEL UP!]`, `You are now Level ${state.level}! Max HP increased!`, 'green-notif');
+        state.str += 3; state.dex += 2; state.int += 1;
+        html += systemNotif(`[LEVEL UP!]`, `You are now Level ${state.level}! STR+3, DEX+2, INT+1. Damage multiplier increased!`, 'green-notif');
       }
     }
 
