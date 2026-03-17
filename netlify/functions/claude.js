@@ -7,13 +7,21 @@ exports.handler = async (event) => {
   if (!apiKey) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: "API key not configured" }),
+      body: JSON.stringify({ error: { message: "ANTHROPIC_API_KEY is not set in Netlify environment variables." } }),
+    };
+  }
+
+  let body;
+  try {
+    body = JSON.parse(event.body);
+  } catch (e) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: { message: "Invalid JSON in request body." } }),
     };
   }
 
   try {
-    const body = JSON.parse(event.body);
-
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -24,7 +32,17 @@ exports.handler = async (event) => {
       body: JSON.stringify(body),
     });
 
-    const data = await response.json();
+    const text = await response.text();
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: { message: `Anthropic returned unexpected response: ${text.substring(0, 300)}` } }),
+      };
+    }
 
     return {
       statusCode: response.status,
@@ -34,7 +52,7 @@ exports.handler = async (event) => {
   } catch (err) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: err.message }),
+      body: JSON.stringify({ error: { message: `Network error reaching Anthropic: ${err.message}` } }),
     };
   }
 };
