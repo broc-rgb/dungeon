@@ -395,6 +395,7 @@
           <button class="action-btn" onclick="doAction('look')">👁️ LOOK AROUND</button>
           <button class="action-btn loot-btn" onclick="doAction('search')">🎁 SEARCH ROOM</button>
           <button class="action-btn" onclick="doAction('rest')">💤 REST</button>
+          <button class="action-btn smoosh-btn" onclick="doAction('smoosh')" style="grid-column: span 3; background: #1a0800; border-color: #ff6600; color: #ff6600; font-size: 13px; letter-spacing: 2px;">👟 FOOT SMOOSH</button>
         </div>
         <div class="custom-input-row" style="margin-top:8px;">
           <input type="text" class="custom-input" id="custom-action" placeholder="What do you do? (type freely...)" 
@@ -642,15 +643,20 @@ async function processAction(actionText, displayText) {
 
     if(result.combat_result) {
       const cr = result.combat_result;
-      html += `<br>${diceHTML('Attack', attackRoll, 20)}`;
-      if(cr.hit) {
-        html += `<br><div class="entry-combat">⚔ Hit! Dealt ${cr.damage} damage to ${cr.enemy_name}.</div>`;
+      const isSmoosh = actionText.includes('FOOT SMOOSH');
+      const playerDmg = isSmoosh ? (cr.damage * 3 + rollDice(20)) : Math.max(cr.damage, rollDice(8) + state.str);
+      html += `<br>${diceHTML(isSmoosh ? 'Smoosh Roll' : 'Attack', attackRoll, 20)}`;
+      if(cr.hit || isSmoosh) {
+        html += `<br><div class="entry-combat" style="${isSmoosh ? 'color:#ff6600;font-size:14px;' : ''}">
+          ${isSmoosh ? '👟 SMOOSH! Carl\'s foot connects for a catastrophic ' : '⚔ Hit! Dealt '}${playerDmg} damage${isSmoosh ? '!!! The crowd goes WILD!' : ` to ${cr.enemy_name}.`}
+        </div>`;
       } else {
         html += `<br><div class="entry-combat">✗ Missed! The ${cr.enemy_name} dodges.</div>`;
       }
-      if(cr.enemy_damage > 0) {
-        html += `<div class="entry-combat">💥 ${cr.enemy_name} strikes back for ${cr.enemy_damage} damage!</div>`;
-        state.hp = Math.max(0, state.hp - cr.enemy_damage);
+      const enemyDmg = Math.floor((cr.enemy_damage || 0) * 0.4);
+      if(enemyDmg > 0) {
+        html += `<div class="entry-combat">💥 ${cr.enemy_name} strikes back for ${enemyDmg} damage!</div>`;
+        state.hp = Math.max(0, state.hp - enemyDmg);
       }
       state.inCombat = result.in_combat;
       state.currentEnemy = result.current_enemy;
@@ -733,7 +739,8 @@ function doAction(type) {
     stealth: ['attempt to sneak past enemies quietly', 'SNEAK'],
     look: ['look around and assess the surroundings', 'SURVEY'],
     search: ['search the room thoroughly for loot and secrets', 'SEARCH'],
-    rest: ['rest and recover HP and MP', 'REST']
+    rest: ['rest and recover HP and MP', 'REST'],
+    smoosh: ['FOOT SMOOSH the enemy — Carl raises his foot and brings it down with devastating, disgusting force. This is Carl\'s signature move. The narrator MUST react with enthusiastic delight about Carl smashing things with his feet, like the dungeon audience goes absolutely wild for it. Deal massive damage.', 'FOOT SMOOSH 👟']
   };
   const [text, label] = actions[type];
   processAction(text, label);
