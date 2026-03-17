@@ -311,7 +311,7 @@
     <!-- Left: Character Panel -->
     <div class="panel">
       <div class="panel-title">CRAWLER STATUS</div>
-      <div class="char-portrait">👱</div>
+      <div class="char-portrait" style="font-size:22px; flex-direction:column; gap:0; line-height:1.1;">👱<br><span style="font-size:16px;">🩲</span></div>
       <div class="char-name" id="char-name">Carl</div>
       <div class="char-class" id="char-class">◆ STREET RAT ◆</div>
 
@@ -395,7 +395,7 @@
           <button class="action-btn" onclick="doAction('look')">👁️ LOOK AROUND</button>
           <button class="action-btn loot-btn" onclick="doAction('search')">🎁 SEARCH ROOM</button>
           <button class="action-btn" onclick="doAction('rest')">💤 REST</button>
-          <button class="action-btn smoosh-btn" onclick="doAction('smoosh')" style="grid-column: span 3; background: #1a0800; border-color: #ff6600; color: #ff6600; font-size: 13px; letter-spacing: 2px;">👟 FOOT SMOOSH</button>
+          <button class="action-btn smoosh-btn" onclick="doAction('smoosh')" style="grid-column: span 3; background: #1a0800; border-color: #ff6600; color: #ff6600; font-size: 13px; letter-spacing: 2px;">🦶 FOOT SMOOSH</button>
         </div>
         <div class="custom-input-row" style="margin-top:8px;">
           <input type="text" class="custom-input" id="custom-action" placeholder="What do you do? (type freely...)" 
@@ -648,11 +648,24 @@ async function processAction(actionText, displayText) {
       html += `<br>${diceHTML(isSmoosh ? 'Smoosh Roll' : 'Attack', attackRoll, 20)}`;
       if(cr.hit || isSmoosh) {
         html += `<br><div class="entry-combat" style="${isSmoosh ? 'color:#ff6600;font-size:14px;' : ''}">
-          ${isSmoosh ? '👟 SMOOSH! Carl\'s foot connects for a catastrophic ' : '⚔ Hit! Dealt '}${playerDmg} damage${isSmoosh ? '!!! The crowd goes WILD!' : ` to ${cr.enemy_name}.`}
+          ${isSmoosh ? '🦶 SMOOSH! Carl\'s foot connects for a catastrophic ' : '⚔ Hit! Dealt '}${playerDmg} damage${isSmoosh ? '!!! The crowd goes WILD!' : ` to ${cr.enemy_name}.`}
         </div>`;
       } else {
         html += `<br><div class="entry-combat">✗ Missed! The ${cr.enemy_name} dodges.</div>`;
       }
+
+      // Donut magic missile proc — fires roughly every 3 attacks
+      state.attackCount = (state.attackCount || 0) + 1;
+      if(state.attackCount % 3 === 0) {
+        const missileDmg = rollDice(12, 3) + 20;
+        html += `
+          <div style="background:#1a003a;border:1px solid var(--purple);border-radius:3px;padding:8px 10px;margin:6px 0;">
+            <div style="color:var(--purple);font-family:'Orbitron',monospace;font-size:10px;font-weight:700;letter-spacing:2px;margin-bottom:4px;">✨ PRINCESS DONUT ACTIVATES</div>
+            <div style="color:#dd88ff;font-size:12px;">🐱 Princess Donut's eyes glow violet. Three crackling magic missiles erupt from her pupils and slam into ${cr.enemy_name || 'the enemy'} for <strong style="color:var(--purple)">${missileDmg} arcane damage!</strong></div>
+            <div style="color:var(--text-dim);font-size:11px;margin-top:4px;font-style:italic;">"Hmph. You're welcome, Carl."</div>
+          </div>`;
+      }
+
       const enemyDmg = Math.floor((cr.enemy_damage || 0) * 0.4);
       if(enemyDmg > 0) {
         html += `<div class="entry-combat">💥 ${cr.enemy_name} strikes back for ${enemyDmg} damage!</div>`;
