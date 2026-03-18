@@ -48,6 +48,61 @@
     pointer-events: none; z-index: 9999;
   }
 
+  /* Boot screen */
+  #boot-screen {
+    position: fixed; inset: 0; background: #000;
+    z-index: 99999; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-family: 'Share Tech Mono', monospace; color: #00ff41;
+    overflow: hidden; cursor: none;
+  }
+  #boot-screen.fade-out { animation: bootFade 1s ease forwards; }
+  @keyframes bootFade { to { opacity: 0; pointer-events: none; } }
+  .boot-scanlines {
+    position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,65,0.03) 2px, rgba(0,255,65,0.04) 4px);
+    z-index: 2;
+  }
+  .boot-vignette {
+    position: absolute; inset: 0; pointer-events: none; z-index: 3;
+    background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.85) 100%);
+  }
+  #boot-log {
+    position: relative; z-index: 4; width: 780px; max-width: 95vw;
+    font-size: 12px; line-height: 1.9; color: #00cc33; min-height: 200px;
+  }
+  #boot-log .ok  { color: #00ff41; }
+  #boot-log .warn{ color: #ffcc00; }
+  #boot-log .err { color: #ff3333; }
+  #boot-title {
+    position: relative; z-index: 4; text-align: center;
+    margin-bottom: 28px; opacity: 0; transition: opacity 0.7s ease;
+  }
+  #boot-title.visible { opacity: 1; }
+  #boot-title-main {
+    font-family: 'Orbitron', monospace; font-size: clamp(20px, 4vw, 44px);
+    font-weight: 900; color: #00ff41; letter-spacing: 4px; line-height: 1.2;
+    text-shadow: 0 0 18px #00ff41, 0 0 36px #00aa28;
+  }
+  #boot-title-sub  { font-size: 12px; color: #00aa28; letter-spacing: 6px; margin-top: 10px; }
+  #boot-title-corp { font-size: 11px; color: #006614; letter-spacing: 3px; margin-top: 6px; }
+  #boot-progress {
+    position: relative; z-index: 4; width: 780px; max-width: 95vw;
+    height: 3px; background: #001a07; margin-top: 16px; border-radius: 2px; overflow: hidden;
+  }
+  #boot-progress-fill {
+    height: 100%; background: #00ff41; width: 0%; transition: width 0.08s linear;
+    box-shadow: 0 0 6px #00ff41;
+  }
+  #boot-press {
+    position: relative; z-index: 4; margin-top: 22px;
+    font-size: 12px; color: #007718; letter-spacing: 3px;
+    animation: blink 1s step-end infinite; display: none;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+
+
   .donut-scroll {
     position: fixed;
     top: 38%;
@@ -317,6 +372,22 @@
 </head>
 <body>
 <div class="scanlines"></div>
+
+<!-- Boot Screen -->
+<div id="boot-screen">
+  <div class="boot-scanlines"></div>
+  <div class="boot-vignette"></div>
+  <div id="boot-title">
+    <div id="boot-title-main">DUNGEON CRAWLER WORLD</div>
+    <div id="boot-title-sub">◆ &nbsp; THE APOCALYPSE EDITION &nbsp; ◆</div>
+    <div id="boot-title-corp">BROUGHT TO YOU BY THE BORANT CORPORATION</div>
+  </div>
+  <div id="boot-log"></div>
+  <div id="boot-progress"><div id="boot-progress-fill"></div></div>
+  <div id="boot-press">[ PRESS ANY KEY OR CLICK TO ENTER ]</div>
+</div>
+
+<!-- View Counter moved into left panel -->
 <div id="app">
   <div class="header">
     <div>
@@ -397,6 +468,11 @@
           <div class="companion-name">PRINCESS DONUT</div>
           <div class="companion-mood" id="donut-mood">Judging you silently</div>
         </div>
+      </div>
+
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:6px 8px;margin-top:8px;text-align:center;font-size:10px;color:var(--text-muted);letter-spacing:1px;">
+        👁 VIEWERS<br>
+        <span id="view-count" style="color:var(--green);font-size:15px;font-family:'Orbitron',monospace;font-weight:700;">0</span>
       </div>
     </div>
 
@@ -651,17 +727,42 @@ async function processAction(actionText, displayText) {
 
   let html = `<div class="entry-user-action">▶ ${displayText}</div>`;
 
-  const attackRoll = rollDice(20);
+  const isInspect = actionText.includes('look around') || actionText.includes('search') || actionText.includes('inspect');
+  const rawRoll = rollDice(20);
+  const attackRoll = isInspect ? Math.max(10, rawRoll) : rawRoll;
+  const rollLabel = isInspect ? 'Perception' : 'Attack';
   const defRoll = rollDice(20);
+
+  // Zev pops in roughly 1 in 4 actions
+  const zevAppears = Math.random() < 0.25;
   
   showLoading();
 
   try {
-    const context = `Action: ${actionText}. Attack roll: ${attackRoll}. Defense roll: ${defRoll}.`;
+    const context = `Action: ${actionText}. ${rollLabel} roll: ${attackRoll}. Defense roll: ${defRoll}.${zevAppears ? ' ZEV appears this action — include Zev (Carl\'s friend, a small nervous man) popping in briefly to comment on what just happened with a short funny observation, then leaving.' : ''}`;
     const result = await callClaude(context);
     hideLoading();
 
     html += `<div class="entry-narrator">${result.narrative}</div>`;
+
+    if(zevAppears) {
+      const zevQuips = [
+        "...Is that normal? That seems like it shouldn't be normal.",
+        "I'm just gonna stand over here. Way over here.",
+        "My therapist said I needed more adventure. I'm filing a complaint.",
+        "Carl, buddy, I say this with love — what is WRONG with you.",
+        "Yep. Yep yep yep. I'm fine. Totally fine.",
+        "Nobody told me there'd be this much... fluid.",
+        "I had a job. I had a normal job.",
+        "My mom asked how the dungeon was going. I hung up."
+      ];
+      const quip = zevQuips[Math.floor(Math.random() * zevQuips.length)];
+      html += `
+        <div style="background:#0a1a0a;border:1px solid #44aa44;border-radius:3px;padding:8px 10px;margin:6px 0;">
+          <div style="color:#44aa44;font-family:'Orbitron',monospace;font-size:10px;font-weight:700;letter-spacing:2px;margin-bottom:4px;">👤 ZEV APPEARS</div>
+          <div style="color:#88cc88;font-size:12px;">Zev: "${quip}"</div>
+          <div style="color:#cc44ff;font-size:13px;font-weight:700;margin-top:6px;">🐱 Princess Donut: "HI ZEV!!!!!"</div>
+        </div>`;}
 
     if(result.combat_result) {
       const cr = result.combat_result;
@@ -670,7 +771,7 @@ async function processAction(actionText, displayText) {
       const playerDmg = isSmoosh
         ? Math.floor((cr.damage * 3 + rollDice(20)) * levelMult)
         : Math.floor(Math.max(cr.damage, rollDice(8) + state.str) * levelMult);
-      html += `<br>${diceHTML(isSmoosh ? 'Smoosh Roll' : 'Attack', attackRoll, 20)}`;
+      html += `<br>${diceHTML(rollLabel, attackRoll, 20)}`;
       if(cr.hit || isSmoosh) {
         html += `<br><div class="entry-combat" style="${isSmoosh ? 'color:#ff6600;font-size:14px;' : ''}">
           ${isSmoosh ? '🦶 SMOOSH! Carl\'s foot connects for a catastrophic ' : '⚔ Hit! Dealt '}${playerDmg} damage${isSmoosh ? '!!! The crowd goes WILD!' : ` to ${cr.enemy_name}.`}
@@ -890,6 +991,75 @@ async function startGame() {
   updateUI();
 }
 
+// View counter (localStorage-based with random seed so it looks real)
+function initViewCounter() {
+  const BASE = 847293;
+  let count = parseInt(localStorage.getItem('dcw_views') || '0');
+  if (count === 0) count = BASE + Math.floor(Math.random() * 12000);
+  count += Math.floor(Math.random() * 3) + 1;
+  localStorage.setItem('dcw_views', count);
+  document.getElementById('view-count').textContent = count.toLocaleString();
+  setInterval(() => {
+    count += Math.floor(Math.random() * 2);
+    localStorage.setItem('dcw_views', count);
+    document.getElementById('view-count').textContent = count.toLocaleString();
+  }, 8000);
+}
+
+// Boot sequence
+async function runBootSequence() {
+  const log = document.getElementById('boot-log');
+  const title = document.getElementById('boot-title');
+  const progressFill = document.getElementById('boot-progress-fill');
+  const pressEl = document.getElementById('boot-press');
+
+  const lines = [
+    { t: 0,    text: 'BORANT CORP ENTERTAINMENT SYSTEMS v7.4.1', cls: '' },
+    { t: 200,  text: 'Copyright (c) The Borant Corporation. All crawlers are property of Borant Corp.', cls: 'warn' },
+    { t: 500,  text: 'Initialising dungeon kernel...', cls: '' },
+    { t: 900,  text: 'Loading floor matrices............... <span class="ok">[OK]</span>', cls: '' },
+    { t: 1300, text: 'Calibrating monster spawn tables.... <span class="ok">[OK]</span>', cls: '' },
+    { t: 1600, text: 'Syncing crawler biometrics.......... <span class="ok">[OK]</span>', cls: '' },
+    { t: 1900, text: 'Checking loot box integrity......... <span class="ok">[OK]</span>', cls: '' },
+    { t: 2100, text: 'WARNING: Crawler death liability waiver not signed', cls: 'warn' },
+    { t: 2300, text: 'Bypassing waiver requirement........ <span class="ok">[OK]</span>', cls: '' },
+    { t: 2600, text: 'Connecting to alien broadcast network <span class="ok">[OK]</span>', cls: '' },
+    { t: 2900, text: 'Loading Princess Donut companion AI. <span class="ok">[OK]</span>', cls: '' },
+    { t: 3100, text: 'Princess Donut AI status: <span class="warn">UNCOOPERATIVE (expected)</span>', cls: '' },
+    { t: 3400, text: 'ERROR: Surface world not found', cls: 'err' },
+    { t: 3600, text: 'Surface world status: <span class="err">DESTROYED</span>. Proceeding.', cls: '' },
+    { t: 3900, text: 'DUNGEON CRAWLER WORLD — ONLINE', cls: 'ok' },
+  ];
+
+  const delay = ms => new Promise(r => setTimeout(r, ms));
+
+  for (const line of lines) {
+    await delay(line.t === 0 ? 0 : lines[lines.indexOf(line)].t - (lines[lines.indexOf(line) - 1]?.t || 0));
+    const p = document.createElement('div');
+    p.innerHTML = line.text;
+    if (line.cls) p.className = line.cls;
+    log.appendChild(p);
+    log.scrollTop = log.scrollHeight;
+    const pct = ((lines.indexOf(line) + 1) / lines.length) * 100;
+    progressFill.style.width = pct + '%';
+  }
+
+  await delay(400);
+  title.classList.add('visible');
+  await delay(900);
+  pressEl.style.display = 'block';
+
+  await new Promise(resolve => {
+    const dismiss = () => { resolve(); }
+    document.addEventListener('keydown', dismiss, { once: true });
+    document.getElementById('boot-screen').addEventListener('click', dismiss, { once: true });
+  });
+
+  document.getElementById('boot-screen').classList.add('fade-out');
+  await delay(900);
+  document.getElementById('boot-screen').remove();
+}
+
 // Animate crawler count
 setInterval(() => {
   const el = document.getElementById('crawler-count');
@@ -899,7 +1069,8 @@ setInterval(() => {
   el.textContent = next.toLocaleString();
 }, 3000);
 
-startGame();
+initViewCounter();
+runBootSequence().then(() => startGame());
 </script>
 </body>
 </html>
