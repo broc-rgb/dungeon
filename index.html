@@ -991,19 +991,28 @@ async function startGame() {
   updateUI();
 }
 
-// View counter (localStorage-based with random seed so it looks real)
+// Shared viewer/crawler count — both displays stay in sync
 function initViewCounter() {
-  const BASE = 847293;
+  const BASE = 2847293;
   let count = parseInt(localStorage.getItem('dcw_views') || '0');
   if (count === 0) count = BASE + Math.floor(Math.random() * 12000);
   count += Math.floor(Math.random() * 3) + 1;
   localStorage.setItem('dcw_views', count);
-  document.getElementById('view-count').textContent = count.toLocaleString();
+
+  function updateBoth() {
+    const formatted = count.toLocaleString();
+    document.getElementById('view-count').textContent = formatted;
+    document.getElementById('crawler-count').textContent = formatted;
+  }
+
+  updateBoth();
+
   setInterval(() => {
-    count += Math.floor(Math.random() * 2);
+    const change = Math.floor(Math.random() * 8) - 3;
+    count = Math.max(0, count + change);
     localStorage.setItem('dcw_views', count);
-    document.getElementById('view-count').textContent = count.toLocaleString();
-  }, 8000);
+    updateBoth();
+  }, 3000);
 }
 
 // Boot sequence
@@ -1059,15 +1068,6 @@ async function runBootSequence() {
   await delay(900);
   document.getElementById('boot-screen').remove();
 }
-
-// Animate crawler count
-setInterval(() => {
-  const el = document.getElementById('crawler-count');
-  const current = parseInt(el.textContent.replace(/,/g,''));
-  const change = Math.floor(Math.random() * 8) - 3;
-  const next = Math.max(0, current + change);
-  el.textContent = next.toLocaleString();
-}, 3000);
 
 initViewCounter();
 runBootSequence().then(() => startGame());
