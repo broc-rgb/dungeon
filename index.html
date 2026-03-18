@@ -121,7 +121,7 @@
   /* Boot screen */
   #boot-screen {
     position: fixed; inset: 0; background: #000;
-    z-index: 99999; display: flex; flex-direction: column;
+    z-index: 99999; display: none; flex-direction: column;
     align-items: center; justify-content: center;
     font-family: 'Share Tech Mono', monospace; color: #00ff41;
     overflow: hidden; cursor: none;
@@ -1229,6 +1229,7 @@ function initViewCounter() {
 
 // Boot sequence
 async function runBootSequence() {
+  document.getElementById('boot-screen').style.display = 'flex';
   const log = document.getElementById('boot-log');
   const title = document.getElementById('boot-title');
   const progressFill = document.getElementById('boot-progress-fill');
