@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dungeon Crawler Carl</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Orbitron:wght@400;700;900&display=swap');
+
+  :root {
+    --bg: #0a0c0f;
+    --bg2: #0f1318;
+    --bg3: #141a22;
+    --panel: #111620;
+    --border: #1e2d3d;
+    --border2: #2a3f55;
+    --green: #00ff88;
+    --green-dim: #00c966;
+    --green-dark: #004d2a;
+    --amber: #ffb300;
+    --amber-dim: #cc8800;
+    --red: #ff3333;
+    --red-dim: #cc2222;
+    --blue: #00aaff;
+    --blue-dim: #0077cc;
+    --purple: #cc44ff;
+    --text: #c8d8e8;
+    --text-dim: #7090a8;
+    --text-muted: #405060;
+    --hp-color: #ff4444;
+    --mp-color: #4488ff;
+    --xp-color: #44ff88;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .scanlines {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    pointer-events: none; z-index: 9999;
+  }
+
+  /* Boot screen */
+  #boot-screen {
+    position: fixed; inset: 0; background: #000;
+    z-index: 99999; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-family: 'Share Tech Mono', monospace; color: #00ff41;
+    overflow: hidden; cursor: none;
+  }
+  #boot-screen.fade-out { animation: bootFade 1s ease forwards; }
+  @keyframes bootFade { to { opacity: 0; pointer-events: none; } }
+  .boot-scanlines {
+    position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,65,0.03) 2px, rgba(0,255,65,0.04) 4px);
+    z-index: 2;
+  }
+  .boot-vignette {
+    position: absolute; inset: 0; pointer-events: none; z-index: 3;
+    background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.85) 100%);
+  }
+  #boot-log {
+    position: relative; z-index: 4; width: 780px; max-width: 95vw;
+    font-size: 12px; line-height: 1.9; color: #00cc33; min-height: 200px;
+  }
+  #boot-log .ok  { color: #00ff41; }
+  #boot-log .warn{ color: #ffcc00; }
+  #boot-log .err { color: #ff3333; }
+  #boot-title {
+    position: relative; z-index: 4; text-align: center;
+    margin-bottom: 28px; opacity: 0; transition: opacity 0.7s ease;
+  }
+  #boot-title.visible { opacity: 1; }
+  #boot-title-main {
+    font-family: 'Orbitron', monospace; font-size: clamp(20px, 4vw, 44px);
+    font-weight: 900; color: #00ff41; letter-spacing: 4px; line-height: 1.2;
+    text-shadow: 0 0 18px #00ff41, 0 0 36px #00aa28;
+  }
+  #boot-title-sub  { font-size: 12px; color: #00aa28; letter-spacing: 6px; margin-top: 10px; }
+  #boot-title-corp { font-size: 11px; color: #006614; letter-spacing: 3px; margin-top: 6px; }
+  #boot-progress {
+    position: relative; z-index: 4; width: 780px; max-width: 95vw;
+    height: 3px; background: #001a07; margin-top: 16px; border-radius: 2px; overflow: hidden;
+  }
+  #boot-progress-fill {
+    height: 100%; background: #00ff41; width: 0%; transition: width 0.08s linear;
+    box-shadow: 0 0 6px #00ff41;
+  }
+  #boot-press {
+    position: relative; z-index: 4; margin-top: 22px;
+    font-size: 12px; color: #007718; letter-spacing: 3px;
+    animation: blink 1s step-end infinite; display: none;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+
+
+  .donut-scroll {
+    position: fixed;
+    top: 38%;
+    left: -420px;
+    z-index: 9998;
+    pointer-events: none;
+    animation: donutScroll 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    white-space: pre;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    line-height: 1.3;
+    color: #dd88ff;
+    text-shadow: 0 0 8px #cc44ff, 0 0 20px #aa00ff;
+    filter: drop-shadow(0 0 6px #cc44ff);
+  }
+  @keyframes donutScroll {
+    0%   { left: -420px; opacity: 0; }
+    10%  { opacity: 1; }
+    80%  { opacity: 1; }
+    100% { left: 110%; opacity: 0; }
+  }
+
+  #app { max-width: 1100px; margin: 0 auto; padding: 12px; }
+
+  /* Header */
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border2); padding-bottom: 10px; margin-bottom: 12px;
+  }
+  .logo {
+    font-family: 'Orbitron', monospace; font-size: 20px; font-weight: 900;
+    color: var(--red); letter-spacing: 2px; text-transform: uppercase;
+  }
+  .logo span { color: var(--red); }
+  .crawler-count {
+    font-size: 11px; color: var(--text-dim); text-align: right; line-height: 1.5;
+  }
+  .crawler-count strong { color: var(--red); }
+
+  /* Main layout */
+  .main-layout {
+    display: grid;
+    grid-template-columns: 220px 1fr 200px;
+    gap: 10px;
+  }
+
+  /* Panels */
+  .panel {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 4px; padding: 10px;
+  }
+  .panel-title {
+    font-family: 'Orbitron', monospace; font-size: 10px; font-weight: 700;
+    color: var(--green); letter-spacing: 3px; text-transform: uppercase;
+    border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 10px;
+  }
+
+  /* Character panel */
+  .char-name {
+    font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 700;
+    color: var(--amber); margin-bottom: 2px;
+  }
+  .char-class {
+    font-size: 11px; color: var(--purple); margin-bottom: 10px; letter-spacing: 1px;
+  }
+  .char-portrait {
+    width: 60px; height: 60px; border: 2px solid var(--border2);
+    border-radius: 4px; margin-bottom: 10px; display: flex; align-items: center;
+    justify-content: center; font-size: 32px; background: var(--bg3);
+  }
+
+  .stat-bar-group { margin-bottom: 8px; }
+  .stat-bar-label {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 10px; margin-bottom: 3px;
+  }
+  .stat-bar-label span:first-child { color: var(--text-dim); letter-spacing: 1px; }
+  .stat-bar-label span:last-child { color: var(--text); }
+  .stat-bar-track {
+    height: 6px; background: var(--bg3); border-radius: 2px; overflow: hidden;
+  }
+  .stat-bar-fill {
+    height: 100%; border-radius: 2px; transition: width 0.4s ease;
+  }
+  .hp-bar { background: var(--hp-color); }
+  .mp-bar { background: var(--mp-color); }
+  .xp-bar { background: var(--xp-color); }
+
+  .stats-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px;
+  }
+  .stat-box {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 3px; padding: 5px 6px; text-align: center;
+  }
+  .stat-box-label { font-size: 9px; color: var(--text-muted); letter-spacing: 1px; }
+  .stat-box-val { font-size: 16px; font-weight: bold; color: var(--amber); font-family: 'Orbitron', monospace; }
+
+  .floor-badge {
+    background: var(--green-dark); border: 1px solid var(--green);
+    color: var(--green); text-align: center; padding: 6px; border-radius: 3px;
+    margin-top: 10px; font-family: 'Orbitron', monospace; font-size: 11px;
+    letter-spacing: 2px;
+  }
+  .floor-badge strong { font-size: 18px; display: block; }
+
+  .companion-box {
+    background: var(--bg3); border: 1px solid var(--purple);
+    border-radius: 3px; padding: 8px; margin-top: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .companion-icon { font-size: 22px; }
+  .companion-name { font-size: 12px; color: var(--purple); font-weight: bold; }
+  .companion-mood { font-size: 10px; color: var(--text-dim); }
+
+  /* Story panel */
+  .story-panel { display: flex; flex-direction: column; gap: 8px; }
+
+  .story-output {
+    flex: 1; min-height: 420px; max-height: 420px; overflow-y: auto;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; padding: 14px;
+    font-size: 13px; line-height: 1.7; color: var(--text);
+    scroll-behavior: smooth;
+  }
+  .story-output::-webkit-scrollbar { width: 4px; }
+  .story-output::-webkit-scrollbar-track { background: var(--bg2); }
+  .story-output::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .story-entry { margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 14px; }
+  .story-entry:last-child { border-bottom: none; margin-bottom: 0; }
+
+  .entry-narrator { color: var(--text); }
+  .entry-system {
+    color: var(--amber); font-size: 12px;
+    border-left: 2px solid var(--amber); padding-left: 8px; margin: 6px 0;
+  }
+  .entry-donut { color: var(--purple); font-style: italic; }
+  .entry-combat { color: var(--red); }
+  .entry-loot { color: var(--green); }
+  .entry-user-action {
+    color: var(--blue); margin-bottom: 8px; font-size: 12px;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+
+  .system-notification {
+    background: linear-gradient(90deg, #1a1200, #2a1f00);
+    border: 1px solid var(--amber); border-radius: 3px;
+    padding: 8px 12px; margin: 8px 0;
+    font-family: 'Orbitron', monospace; font-size: 11px;
+    color: var(--amber); letter-spacing: 1px;
+  }
+  .system-notification .notif-title {
+    font-weight: 700; font-size: 12px; margin-bottom: 2px;
+  }
+  .system-notification.green-notif {
+    background: linear-gradient(90deg, #001a0d, #002a14);
+    border-color: var(--green); color: var(--green);
+  }
+  .system-notification.red-notif {
+    background: linear-gradient(90deg, #1a0000, #2a0000);
+    border-color: var(--red); color: var(--red);
+  }
+  .system-notification.purple-notif {
+    background: linear-gradient(90deg, #0f0020, #1a0030);
+    border-color: var(--purple); color: var(--purple);
+  }
+
+  .dice-roll {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: 3px; padding: 2px 8px; font-size: 11px; margin: 2px 0;
+  }
+  .dice-icon { color: var(--amber); }
+  .dice-result { color: var(--green); font-weight: bold; }
+
+  .loading-dots {
+    display: inline-flex; gap: 4px; align-items: center; padding: 10px 0;
+  }
+  .loading-dots span {
+    width: 6px; height: 6px; background: var(--green);
+    border-radius: 50%; animation: pulse 1.2s infinite;
+  }
+  .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes pulse { 0%,80%,100% { opacity: 0.2; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1); } }
+
+  /* Action area */
+  .action-area { display: flex; flex-direction: column; gap: 8px; }
+
+  .action-buttons {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+  }
+  .action-btn {
+    background: var(--bg3); border: 1px solid var(--border2);
+    color: var(--text); font-family: 'Share Tech Mono', monospace;
+    font-size: 11px; padding: 8px 6px; border-radius: 3px; cursor: pointer;
+    transition: all 0.15s; letter-spacing: 0.5px; text-align: center;
+    line-height: 1.3;
+  }
+  .action-btn:hover:not(:disabled) {
+    background: var(--bg2); border-color: var(--green); color: var(--green);
+  }
+  .action-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .action-btn.danger:hover:not(:disabled) { border-color: var(--red); color: var(--red); }
+  .action-btn.loot-btn:hover:not(:disabled) { border-color: var(--amber); color: var(--amber); }
+
+  .custom-input-row { display: flex; gap: 8px; }
+  .custom-input {
+    flex: 1; background: var(--bg3); border: 1px solid var(--border2);
+    color: var(--text); font-family: 'Share Tech Mono', monospace;
+    font-size: 12px; padding: 8px 10px; border-radius: 3px; outline: none;
+  }
+  .custom-input:focus { border-color: var(--green); }
+  .custom-input::placeholder { color: var(--text-muted); }
+  .send-btn {
+    background: var(--green-dark); border: 1px solid var(--green);
+    color: var(--green); font-family: 'Orbitron', monospace; font-size: 10px;
+    font-weight: 700; padding: 8px 14px; border-radius: 3px; cursor: pointer;
+    letter-spacing: 1px; transition: all 0.15s;
+  }
+  .send-btn:hover:not(:disabled) { background: var(--green); color: var(--bg); }
+  .send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* Inventory panel */
+  .inventory-list { display: flex; flex-direction: column; gap: 4px; }
+  .inv-item {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 3px; padding: 6px 8px; font-size: 11px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .inv-item-name { color: var(--text); }
+  .inv-item-rarity {
+    font-size: 9px; padding: 1px 5px; border-radius: 2px; letter-spacing: 1px;
+  }
+  .rarity-common { background: #1a1a1a; color: #888; border: 1px solid #444; }
+  .rarity-uncommon { background: #001a08; color: var(--green); border: 1px solid var(--green-dark); }
+  .rarity-rare { background: #00081a; color: var(--blue); border: 1px solid var(--blue-dim); }
+  .rarity-epic { background: #0f0020; color: var(--purple); border: 1px solid #6622aa; }
+  .rarity-legendary { background: #1a0e00; color: var(--amber); border: 1px solid var(--amber-dim); }
+
+  .loot-box-btn {
+    width: 100%; background: linear-gradient(135deg, #1a0e00, #0f1800);
+    border: 1px solid var(--amber); color: var(--amber);
+    font-family: 'Orbitron', monospace; font-size: 10px; font-weight: 700;
+    padding: 8px; border-radius: 3px; cursor: pointer; letter-spacing: 1px;
+    margin-top: 8px; transition: all 0.2s;
+  }
+  .loot-box-btn:hover:not(:disabled) { background: var(--amber); color: var(--bg); }
+  .loot-box-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .loot-count {
+    background: var(--amber); color: var(--bg); border-radius: 2px;
+    padding: 1px 5px; font-size: 10px; margin-left: 6px;
+  }
+
+  .gold-display {
+    text-align: center; padding: 6px; background: var(--bg3);
+    border: 1px solid var(--amber-dim); border-radius: 3px; margin-top: 8px;
+    font-family: 'Orbitron', monospace; font-size: 12px; color: var(--amber);
+  }
+
+  /* Responsive */
+  @media (max-width: 800px) {
+    .main-layout { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="scanlines"></div>
+
+<!-- Boot Screen -->
+<div id="boot-screen">
+  <div class="boot-scanlines"></div>
+  <div class="boot-vignette"></div>
+  <div id="boot-title">
+    <div id="boot-title-main">DUNGEON CRAWLER WORLD</div>
+    <div id="boot-title-sub">◆ &nbsp; THE APOCALYPSE EDITION &nbsp; ◆</div>
+    <div id="boot-title-corp">BROUGHT TO YOU BY THE BORANT CORPORATION</div>
+  </div>
+  <div id="boot-log"></div>
+  <div id="boot-progress"><div id="boot-progress-fill"></div></div>
+  <div id="boot-press">[ PRESS ANY KEY OR CLICK TO ENTER ]</div>
+</div>
+
+<!-- View Counter moved into left panel -->
+<div id="app">
+  <div class="header">
+    <div>
+      <div class="logo">DUNGEON CRAWLER <span>CARL</span></div>
+      <div style="font-size:10px;color:var(--text-muted);letter-spacing:2px;margin-top:2px;">THE APOCALYPSE EDITION</div>
+    </div>
+    <div class="crawler-count">
+      ACTIVE CRAWLERS: <strong id="crawler-count">2,847,113</strong><br>
+      <span id="crawler-subtitle" style="font-size:10px;">DOWN FROM 8 BILLION</span>
+    </div>
+  </div>
+
+  <div class="main-layout">
+    <!-- Left: Character Panel -->
+    <div class="panel">
+      <div class="panel-title">CRAWLER STATUS</div>
+      <div class="char-portrait" style="font-size:22px; flex-direction:column; gap:0; line-height:1.1;">👱<br><span style="font-size:16px;">🩲</span></div>
+      <div class="char-name" id="char-name">Carl</div>
+      <div class="char-class" id="char-class">◆ STREET RAT ◆</div>
+
+      <div class="stat-bar-group">
+        <div class="stat-bar-label">
+          <span>HP</span>
+          <span id="hp-text">100 / 100</span>
+        </div>
+        <div class="stat-bar-track">
+          <div class="stat-bar-fill hp-bar" id="hp-bar" style="width:100%"></div>
+        </div>
+      </div>
+
+      <div class="stat-bar-group">
+        <div class="stat-bar-label">
+          <span>MP</span>
+          <span id="mp-text">40 / 40</span>
+        </div>
+        <div class="stat-bar-track">
+          <div class="stat-bar-fill mp-bar" id="mp-bar" style="width:100%"></div>
+        </div>
+      </div>
+
+      <div class="stat-bar-group">
+        <div class="stat-bar-label">
+          <span>XP</span>
+          <span id="xp-text">0 / 200</span>
+        </div>
+        <div class="stat-bar-track">
+          <div class="stat-bar-fill xp-bar" id="xp-bar" style="width:0%"></div>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-box-label">STR</div>
+          <div class="stat-box-val" id="stat-str">12</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-label">DEX</div>
+          <div class="stat-box-val" id="stat-dex">14</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-label">INT</div>
+          <div class="stat-box-val" id="stat-int">10</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-label">LVL</div>
+          <div class="stat-box-val" id="stat-lvl">1</div>
+        </div>
+      </div>
+
+      <div class="floor-badge">
+        <div style="font-size:9px;letter-spacing:2px;color:var(--text-muted)">CURRENT</div>
+        FLOOR <strong id="floor-num">1</strong>
+      </div>
+
+      <div class="companion-box">
+        <div class="companion-icon">🐱</div>
+        <div>
+          <div class="companion-name">PRINCESS DONUT</div>
+          <div class="companion-mood" id="donut-mood">Judging you silently</div>
+        </div>
+      </div>
+
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:6px 8px;margin-top:8px;text-align:center;font-size:10px;color:var(--text-muted);letter-spacing:1px;">
+        👁 VIEWERS<br>
+        <span id="view-count" style="color:var(--green);font-size:15px;font-family:'Orbitron',monospace;font-weight:700;">0</span>
+      </div>
+    </div>
+
+    <!-- Middle: Story Panel -->
+    <div class="story-panel">
+      <div class="panel" style="flex:1;display:flex;flex-direction:column;padding:0;">
+        <div style="padding:8px 12px;border-bottom:1px solid var(--border);">
+          <div class="panel-title" style="margin-bottom:0;border:none;padding:0;">DUNGEON LOG</div>
+        </div>
+        <div class="story-output" id="story-output"></div>
+      </div>
+
+      <div class="panel" style="padding:10px;">
+        <div class="action-buttons" id="action-buttons">
+          <button class="action-btn" onclick="doAction('explore')">🔦 EXPLORE</button>
+          <button class="action-btn danger" onclick="doAction('fight')">⚔️ FIGHT</button>
+          <button class="action-btn" onclick="doAction('stealth')">👣 SNEAK</button>
+          <button class="action-btn" onclick="doAction('look')">👁️ LOOK AROUND</button>
+          <button class="action-btn loot-btn" onclick="doAction('search')">🎁 SEARCH ROOM</button>
+          <button class="action-btn" onclick="doAction('rest')">💤 REST</button>
+          <button class="action-btn smoosh-btn" onclick="doAction('smoosh')" style="grid-column: span 3; background: #1a0800; border-color: #ff6600; color: #ff6600; font-size: 13px; letter-spacing: 2px;">🦶 FOOT SMOOSH</button>
+        </div>
+        <div class="custom-input-row" style="margin-top:8px;">
+          <input type="text" class="custom-input" id="custom-action" placeholder="What do you do? (type freely...)" 
+            onkeydown="if(event.key==='Enter')sendCustom()">
+          <button class="send-btn" onclick="sendCustom()" id="send-btn">SEND ↗</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Inventory Panel -->
+    <div class="panel">
+      <div class="panel-title">INVENTORY</div>
+      <div class="inventory-list" id="inventory-list"></div>
+      
+      <button class="loot-box-btn" id="loot-btn" onclick="openLootBox()" disabled>
+        OPEN LOOT BOX <span class="loot-count" id="loot-count">0</span>
+      </button>
+      
+      <div class="gold-display">
+        💰 <span id="gold-amount">0</span> COINS
+      </div>
+
+      <div style="margin-top:12px;">
+        <div class="panel-title">SKILLS</div>
+        <div id="skills-list" style="font-size:11px;color:var(--text-dim);line-height:1.8;">
+          ◈ Dirty Fighting (Passive)<br>
+          ◈ Street Sense (Passive)
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const state = {
+  hp: 100, maxHp: 100,
+  mp: 40, maxMp: 40,
+  xp: 0, xpNext: 200,
+  level: 1,
+  floor: 1,
+  gold: 0,
+  str: 12, dex: 14, int: 10,
+  lootBoxes: 0,
+  inventory: [
+    { name: "Tattered Jeans", rarity: "common" },
+    { name: "Half-Empty Beer Bottle", rarity: "common" }
+  ],
+  skills: ["Dirty Fighting (Passive)", "Street Sense (Passive)"],
+  charClass: "Street Rat",
+  inCombat: false,
+  currentEnemy: null,
+  loading: false,
+  storyHistory: [],
+  roomDescription: "",
+  donuts: ["Judging you silently","Deeply unimpressed","Plotting against you","Refusing to help","Occasionally useful"]
+};
+
+const ITEMS_POOL = {
+  common: ["Ratty Bandage", "Stale Ration Bar", "Rusty Dagger", "Torch", "Rope (frayed)", "Broken Compass"],
+  uncommon: ["Copper Ring of Minor Toughness", "Goblin-Skin Gloves", "Potion of Weak Healing", "Mana Shard", "Enchanted Sock"],
+  rare: ["Staff of Mild Inconvenience", "Boots of Questionable Speed", "Amulet of Mediocre Protection", "Blue Mana Crystal"],
+  epic: ["Donut's Scratch (Cursed)", "Carl's Lucky Underwear", "Ring of the Desperate", "Void-Touched Shortsword"],
+  legendary: ["The Magnificent Bastard's Coat", "Skull of Eternal Suffering", "Princess Donut's Tiara (Stolen)"]
+};
+
+function rollDice(sides, num=1) {
+  let total = 0;
+  for(let i=0;i<num;i++) total += Math.floor(Math.random()*sides)+1;
+  return total;
+}
+
+function updateUI() {
+  document.getElementById('hp-text').textContent = `${state.hp} / ${state.maxHp}`;
+  document.getElementById('mp-text').textContent = `${state.mp} / ${state.maxMp}`;
+  document.getElementById('xp-text').textContent = `${state.xp} / ${state.xpNext}`;
+  document.getElementById('hp-bar').style.width = `${(state.hp/state.maxHp)*100}%`;
+  document.getElementById('mp-bar').style.width = `${(state.mp/state.maxMp)*100}%`;
+  document.getElementById('xp-bar').style.width = `${(state.xp/state.xpNext)*100}%`;
+  document.getElementById('stat-str').textContent = state.str;
+  document.getElementById('stat-dex').textContent = state.dex;
+  document.getElementById('stat-int').textContent = state.int;
+  document.getElementById('stat-lvl').textContent = state.level;
+  document.getElementById('floor-num').textContent = state.floor;
+  document.getElementById('gold-amount').textContent = state.gold;
+  document.getElementById('char-class').textContent = `◆ ${state.charClass.toUpperCase()} ◆`;
+  document.getElementById('donut-mood').textContent = state.donuts[Math.floor(Math.random()*state.donuts.length)];
+  
+  const lootBtn = document.getElementById('loot-btn');
+  lootBtn.disabled = state.lootBoxes === 0 || state.loading;
+  document.getElementById('loot-count').textContent = state.lootBoxes;
+
+  const invList = document.getElementById('inventory-list');
+  invList.innerHTML = state.inventory.slice(-8).map(item => `
+    <div class="inv-item">
+      <span class="inv-item-name">${item.name}</span>
+      <span class="inv-item-rarity rarity-${item.rarity}">${item.rarity.toUpperCase()}</span>
+    </div>
+  `).join('');
+
+  const actionBtns = document.querySelectorAll('.action-btn');
+  actionBtns.forEach(b => b.disabled = state.loading);
+  document.getElementById('send-btn').disabled = state.loading;
+}
+
+function appendEntry(html, type='narrator') {
+  const out = document.getElementById('story-output');
+  const div = document.createElement('div');
+  div.className = 'story-entry';
+  div.innerHTML = html;
+  out.appendChild(div);
+  out.scrollTop = out.scrollHeight;
+}
+
+function showLoading() {
+  const out = document.getElementById('story-output');
+  const div = document.createElement('div');
+  div.id = 'loading-indicator';
+  div.innerHTML = `<div class="loading-dots"><span></span><span></span><span></span></div> <span style="color:var(--text-muted);font-size:11px;">SYSTEM PROCESSING...</span>`;
+  out.appendChild(div);
+  out.scrollTop = out.scrollHeight;
+}
+
+function hideLoading() {
+  const el = document.getElementById('loading-indicator');
+  if(el) el.remove();
+}
+
+function diceHTML(label, roll, sides) {
+  return `<div class="dice-roll"><span class="dice-icon">⬡</span> ${label}: d${sides} → <span class="dice-result">${roll}</span></div>`;
+}
+
+function systemNotif(title, body, color='') {
+  return `<div class="system-notification ${color}"><div class="notif-title">${title}</div>${body}</div>`;
+}
+
+async function callClaude(userAction) {
+  const systemPrompt = `You are the AI narrator for a text-based dungeon crawler RPG inspired by the LitRPG series "Dungeon Crawler Carl" by Matt Dobb.
+
+GAME STATE:
+- Player: Carl, Level ${state.level} ${state.charClass}
+- HP: ${state.hp}/${state.maxHp} | MP: ${state.mp}/${state.maxMp}
+- Floor: ${state.floor} of the Dungeon
+- Stats: STR ${state.str}, DEX ${state.dex}, INT ${state.int}
+- Gold: ${state.gold}
+- Inventory: ${state.inventory.map(i=>i.name).join(', ')}
+- Companion: Princess Donut (a show cat who is better than Carl and knows it)
+- In Combat: ${state.inCombat}${state.currentEnemy ? ` vs ${state.currentEnemy}` : ''}
+
+DUNGEON CRAWLER CARL WORLD RULES:
+- The entire surface world was destroyed by aliens who installed dungeon floors underneath
+- The dungeon is a gladiatorial spectacle broadcast to alien audiences
+- The System speaks in all-caps notifications with brackets like [ACHIEVEMENT UNLOCKED] or [QUEST ACCEPTED]
+- Carl is a down-on-his-luck guy who was home when the apocalypse hit
+- Princess Donut is Carl's ex-girlfriend's show cat — pampered, arrogant, powerful, and surprisingly deadly
+- Donut speaks in catty, entitled dialogue, often complaining or boasting
+- There are sponsors who send gift boxes, quests, and power-ups
+- Floors have themes (sewers, goblin dens, undead crypts, etc.)
+- Loot boxes are extremely important and addictive
+- Dark humor throughout — this is brutal but funny
+- Monsters can be absurd (sentient furniture, evolved rats, cultists)
+- The narrative should be vivid, punchy, and entertaining
+
+RESPONSE FORMAT:
+Respond in JSON only (no markdown fences), with this structure:
+{
+  "narrative": "Main story text (2-4 sentences, vivid and punchy)",
+  "donut_says": "Optional: Princess Donut's snarky comment (short, 1 sentence, in quotes)",
+  "system_message": "Optional: A SYSTEM notification like [ACHIEVEMENT UNLOCKED: FIRST BLOOD] Survived first encounter",
+  "system_type": "green|amber|red|purple (color of notification)",
+  "combat_result": null or { "hit": true/false, "damage": number, "enemy_damage": number, "enemy_name": "string" },
+  "loot": null or { "gold": number, "items": ["item name"], "loot_boxes": number },
+  "xp_gain": number,
+  "hp_change": number (negative = damage, positive = healing),
+  "mp_change": number,
+  "new_floor": null or number,
+  "new_class": null or "string",
+  "in_combat": true or false,
+  "current_enemy": null or "string name of enemy",
+  "room_mood": "tense|peaceful|danger|creepy|exciting"
+}`;
+
+  const messages = [
+    ...state.storyHistory.slice(-8),
+    { role: "user", content: userAction }
+  ];
+
+  const resp = await fetch("/.netlify/functions/claude", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-5-20250929",
+      max_tokens: 1000,
+      system: systemPrompt,
+      messages
+    })
+  });
+
+  const rawText = await resp.text();
+  let data;
+  try {
+    data = JSON.parse(rawText);
+  } catch(e) {
+    throw new Error(`Server returned unexpected response (status ${resp.status}). Check your API key is set in Netlify Environment Variables.`);
+  }
+  if (!resp.ok || data.error) {
+    throw new Error(data.error?.message || `API error: ${resp.status}`);
+  }
+  const text = data.content[0].text;
+  
+  let result;
+  try {
+    result = JSON.parse(text.replace(/```json|```/g,'').trim());
+  } catch(e) {
+    result = {
+      narrative: text.substring(0, 400),
+      xp_gain: 5, hp_change: 0, mp_change: 0,
+      in_combat: false, current_enemy: null
+    };
+  }
+
+  state.storyHistory.push({ role: "user", content: userAction });
+  state.storyHistory.push({ role: "assistant", content: JSON.stringify(result) });
+
+  return result;
+}
+
+async function processAction(actionText, displayText) {
+  if(state.loading) return;
+  state.loading = true;
+  updateUI();
+
+  let html = `<div class="entry-user-action">▶ ${displayText}</div>`;
+
+  const isInspect = actionText.includes('look around') || actionText.includes('search') || actionText.includes('inspect');
+  const rawRoll = rollDice(20);
+  const attackRoll = isInspect ? Math.max(10, rawRoll) : rawRoll;
+  const rollLabel = isInspect ? 'Perception' : 'Attack';
+  const defRoll = rollDice(20);
+
+  // Zev pops in roughly 1 in 4 actions
+  const zevAppears = Math.random() < 0.25;
+  
+  showLoading();
+
+  try {
+    const context = `Action: ${actionText}. ${rollLabel} roll: ${attackRoll}. Defense roll: ${defRoll}.${zevAppears ? ' ZEV appears this action — include Zev (Carl\'s friend, a small nervous man) popping in briefly to comment on what just happened with a short funny observation, then leaving.' : ''}`;
+    const result = await callClaude(context);
+    hideLoading();
+
+    html += `<div class="entry-narrator">${result.narrative}</div>`;
+
+    if(zevAppears) {
+      const zevQuips = [
+        "...Is that normal? That seems like it shouldn't be normal.",
+        "I'm just gonna stand over here. Way over here.",
+        "My therapist said I needed more adventure. I'm filing a complaint.",
+        "Carl, buddy, I say this with love — what is WRONG with you.",
+        "Yep. Yep yep yep. I'm fine. Totally fine.",
+        "Nobody told me there'd be this much... fluid.",
+        "I had a job. I had a normal job.",
+        "My mom asked how the dungeon was going. I hung up."
+      ];
+      const quip = zevQuips[Math.floor(Math.random() * zevQuips.length)];
+      html += `
+        <div style="background:#0a1a0a;border:1px solid #44aa44;border-radius:3px;padding:8px 10px;margin:6px 0;">
+          <div style="color:#44aa44;font-family:'Orbitron',monospace;font-size:10px;font-weight:700;letter-spacing:2px;margin-bottom:4px;">👤 ZEV APPEARS</div>
+          <div style="color:#88cc88;font-size:12px;">Zev: "${quip}"</div>
+          <div style="color:#cc44ff;font-size:13px;font-weight:700;margin-top:6px;">🐱 Princess Donut: "HI ZEV!!!!!"</div>
+        </div>`;}
+
+    if(result.combat_result) {
+      const cr = result.combat_result;
+      const isSmoosh = actionText.includes('FOOT SMOOSH');
+      const levelMult = 1 + (state.level - 1) * 0.3;
+      const playerDmg = isSmoosh
+        ? Math.floor((cr.damage * 3 + rollDice(20)) * levelMult)
+        : Math.floor(Math.max(cr.damage, rollDice(8) + state.str) * levelMult);
+      html += `<br>${diceHTML(rollLabel, attackRoll, 20)}`;
+      if(cr.hit || isSmoosh) {
+        html += `<br><div class="entry-combat" style="${isSmoosh ? 'color:#ff6600;font-size:14px;' : ''}">
+          ${isSmoosh ? '🦶 SMOOSH! Carl\'s foot connects for a catastrophic ' : '⚔ Hit! Dealt '}${playerDmg} damage${isSmoosh ? '!!! The crowd goes WILD!' : ` to ${cr.enemy_name}.`}
+        </div>`;
+      } else {
+        html += `<br><div class="entry-combat">✗ Missed! The ${cr.enemy_name} dodges.</div>`;
+      }
+
+      // Donut magic missile proc — fires roughly every 3 attacks
+      state.attackCount = (state.attackCount || 0) + 1;
+      if(state.attackCount % 3 === 0) {
+        const missileDmg = rollDice(12, 3) + 20;
+        showDonutScroll();
+        html += `
+          <div style="background:#1a003a;border:1px solid var(--purple);border-radius:3px;padding:8px 10px;margin:6px 0;">
+            <div style="color:var(--purple);font-family:'Orbitron',monospace;font-size:10px;font-weight:700;letter-spacing:2px;margin-bottom:4px;">✨ PRINCESS DONUT ACTIVATES</div>
+            <div style="color:#dd88ff;font-size:12px;">🐱 Princess Donut's eyes glow violet. Three crackling magic missiles erupt from her pupils and slam into ${cr.enemy_name || 'the enemy'} for <strong style="color:var(--purple)">${missileDmg} arcane damage!</strong></div>
+            <div style="color:var(--text-dim);font-size:11px;margin-top:4px;font-style:italic;">"Hmph. You're welcome, Carl."</div>
+          </div>`;
+      }
+
+      const enemyDmg = Math.floor((cr.enemy_damage || 0) * 0.4);
+      if(enemyDmg > 0) {
+        html += `<div class="entry-combat">💥 ${cr.enemy_name} strikes back for ${enemyDmg} damage!</div>`;
+        state.hp = Math.max(0, state.hp - enemyDmg);
+      }
+      state.inCombat = result.in_combat;
+      state.currentEnemy = result.current_enemy;
+    }
+
+    if(result.loot) {
+      if(result.loot.gold > 0) {
+        state.gold += result.loot.gold;
+        html += `<div class="entry-loot">💰 Found ${result.loot.gold} coins!</div>`;
+      }
+      if(result.loot.items && result.loot.items.length > 0) {
+        result.loot.items.forEach(item => {
+          const rarities = ['common','common','uncommon','uncommon','rare','epic'];
+          const rarity = rarities[Math.floor(Math.random()*rarities.length)];
+          state.inventory.push({ name: item, rarity });
+          html += `<div class="entry-loot">🎁 Obtained: <strong>${item}</strong></div>`;
+        });
+      }
+      if(result.loot.loot_boxes > 0) {
+        state.lootBoxes += result.loot.loot_boxes;
+        html += systemNotif(`[LOOT BOX RECEIVED]`, `${result.loot.loot_boxes} Loot Box(es) added to your stash!`, 'green-notif');
+      }
+    }
+
+    if(result.hp_change) state.hp = Math.min(state.maxHp, Math.max(0, state.hp + result.hp_change));
+    if(result.mp_change) state.mp = Math.min(state.maxMp, Math.max(0, state.mp + result.mp_change));
+
+    if(result.xp_gain > 0) {
+      state.xp += result.xp_gain;
+      html += `<div style="font-size:11px;color:var(--xp-color);">+${result.xp_gain} XP</div>`;
+      if(state.xp >= state.xpNext) {
+        state.level++;
+        state.xp = state.xp - state.xpNext;
+        state.xpNext = Math.floor(state.xpNext * 1.6);
+        state.maxHp += 15; state.hp = state.maxHp;
+        state.str += 3; state.dex += 2; state.int += 1;
+        html += systemNotif(`[LEVEL UP!]`, `You are now Level ${state.level}! STR+3, DEX+2, INT+1. Damage multiplier increased!`, 'green-notif');
+      }
+    }
+
+    if(result.system_message) {
+      const colors = { green: 'green-notif', red: 'red-notif', purple: 'purple-notif', amber: '' };
+      html += systemNotif('', result.system_message, colors[result.system_type] || '');
+    }
+
+    if(result.donut_says) {
+      html += `<div class="entry-donut">🐱 Princess Donut: "${result.donut_says}"</div>`;
+    }
+
+    if(result.new_floor && result.new_floor > state.floor) {
+      state.floor = result.new_floor;
+      html += systemNotif(`[FLOOR DESCENT]`, `Entering Floor ${state.floor}. Good luck. You'll need it.`, 'purple-notif');
+    }
+
+    if(result.new_class) {
+      state.charClass = result.new_class;
+      html += systemNotif(`[CLASS UPGRADE]`, `Class changed to: ${result.new_class}!`, 'purple-notif');
+    }
+
+    if(state.hp <= 0) {
+      html += systemNotif(`[CRAWLER DECEASED]`, `Carl has died. The dungeon claims another soul. Restart to try again.`, 'red-notif');
+    }
+
+    appendEntry(html);
+    updateUI();
+
+  } catch(err) {
+    hideLoading();
+    appendEntry(`<div class="entry-system">⚠ SYSTEM ERROR: ${err.message}. The dungeon glitches momentarily...</div>`);
+  }
+
+  state.loading = false;
+  updateUI();
+}
+
+function doAction(type) {
+  const actions = {
+    explore: ['explore the area carefully', 'EXPLORE'],
+    fight: ['attack the nearest enemy aggressively', 'FIGHT'],
+    stealth: ['attempt to sneak past enemies quietly', 'SNEAK'],
+    look: ['look around and assess the surroundings', 'SURVEY'],
+    search: ['search the room thoroughly for loot and secrets', 'SEARCH'],
+    rest: ['rest and recover HP and MP', 'REST'],
+    smoosh: ['FOOT SMOOSH the enemy — Carl raises his foot and brings it down with devastating, disgusting force. This is Carl\'s signature move. The narrator MUST react with enthusiastic delight about Carl smashing things with his feet, like the dungeon audience goes absolutely wild for it. Deal massive damage.', 'FOOT SMOOSH 👟']
+  };
+  const [text, label] = actions[type];
+  processAction(text, label);
+}
+
+function sendCustom() {
+  const input = document.getElementById('custom-action');
+  const val = input.value.trim();
+  if(!val) return;
+  input.value = '';
+  processAction(val, val.toUpperCase().substring(0,30));
+}
+
+async function openLootBox() {
+  if(state.lootBoxes <= 0 || state.loading) return;
+  state.lootBoxes--;
+  state.loading = true;
+  updateUI();
+
+  const roll = rollDice(100);
+  let rarity, item;
+  
+  if(roll <= 2) { rarity = 'legendary'; item = ITEMS_POOL.legendary[Math.floor(Math.random()*ITEMS_POOL.legendary.length)]; }
+  else if(roll <= 12) { rarity = 'epic'; item = ITEMS_POOL.epic[Math.floor(Math.random()*ITEMS_POOL.epic.length)]; }
+  else if(roll <= 32) { rarity = 'rare'; item = ITEMS_POOL.rare[Math.floor(Math.random()*ITEMS_POOL.rare.length)]; }
+  else if(roll <= 62) { rarity = 'uncommon'; item = ITEMS_POOL.uncommon[Math.floor(Math.random()*ITEMS_POOL.uncommon.length)]; }
+  else { rarity = 'common'; item = ITEMS_POOL.common[Math.floor(Math.random()*ITEMS_POOL.common.length)]; }
+
+  state.inventory.push({ name: item, rarity });
+  
+  const rarityColors = { common:'', uncommon:'green-notif', rare:'', epic:'purple-notif', legendary:'amber' };
+  const gold = rollDice(20) * (rarity === 'legendary' ? 10 : rarity === 'epic' ? 5 : rarity === 'rare' ? 3 : 1);
+  state.gold += gold;
+
+  let html = systemNotif(
+    `[LOOT BOX OPENED]`,
+    `🎲 Roll: ${roll}/100 → ${rarity.toUpperCase()}<br>📦 Obtained: <strong>${item}</strong><br>💰 +${gold} coins`,
+    rarityColors[rarity] || (roll <= 32 ? '' : '')
+  );
+  
+  if(rarity === 'legendary') {
+    html += `<div class="entry-loot" style="color:var(--amber);">✦ LEGENDARY ITEM! The dungeon shakes with your fortune!</div>`;
+  } else if(rarity === 'epic') {
+    html += `<div class="entry-loot" style="color:var(--purple);">✦ EPIC ITEM! Not bad, crawler.</div>`;
+  }
+  
+  html += `<div class="entry-donut">🐱 Princess Donut: "I would have gotten something better."</div>`;
+
+  appendEntry(html);
+  state.loading = false;
+  updateUI();
+}
+
+function showDonutScroll() {
+  const face = [
+    "   /\\_____/\\   ",
+    "  ( ^o.o^ )  ",
+    "   > ^ ^ <   ",
+    "  (_______) ",
+  ].join('\n');
+  const tiara = "  ✦ 👑 ✦  ";
+  const el = document.createElement('div');
+  el.className = 'donut-scroll';
+  el.textContent = tiara + '\n' + face + '\n' + "  ✨ MISSILES ✨";
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2600);
+}
+
+async function startGame() {
+  state.loading = true;
+  updateUI();
+  showLoading();
+  
+  try {
+    const intro = await callClaude("Start the game. Set the scene: the apocalypse just happened, Carl is in his apartment with Princess Donut when the dungeon opens beneath them. They fall to Floor 1. Describe the opening vividly. Give Carl a loot box as a starting gift from the System. Make it dramatic and darkly funny.");
+    hideLoading();
+
+    let html = `<div class="entry-narrator">${intro.narrative}</div>`;
+    
+    if(intro.system_message) {
+      html += systemNotif('', intro.system_message, intro.system_type === 'green' ? 'green-notif' : '');
+    }
+    html += systemNotif('[DUNGEON SYSTEM ONLINE]', 'Welcome, Crawler. Survive. Entertain. Try not to die too quickly — it\'s bad for ratings.', 'green-notif');
+    
+    if(intro.loot && intro.loot.loot_boxes) {
+      state.lootBoxes += intro.loot.loot_boxes || 1;
+    } else {
+      state.lootBoxes += 1;
+    }
+
+    html += `<div class="entry-donut">🐱 Princess Donut: "Carl, I want you to know that this is entirely your fault."</div>`;
+    
+    appendEntry(html);
+  } catch(e) {
+    hideLoading();
+    appendEntry(`
+      <div class="system-notification green-notif">
+        <div class="notif-title">[DUNGEON SYSTEM ONLINE]</div>
+        Welcome, Crawler. The apocalypse has ended the world above. Eight billion people, gone in an instant. The dungeon opens beneath your feet.
+      </div>
+      <div class="entry-narrator">You and Princess Donut fall through your apartment floor into the dungeon. Floor 1: The Sewers. The smell is indescribable. Somewhere in the darkness, something skitters.</div>
+      <div class="entry-donut">🐱 Princess Donut: "Carl. This is entirely your fault. I want that on record."</div>
+    `);
+    state.lootBoxes = 1;
+  }
+  
+  state.loading = false;
+  updateUI();
+}
+
+// View counter (localStorage-based with random seed so it looks real)
+function initViewCounter() {
+  const BASE = 847293;
+  let count = parseInt(localStorage.getItem('dcw_views') || '0');
+  if (count === 0) count = BASE + Math.floor(Math.random() * 12000);
+  count += Math.floor(Math.random() * 3) + 1;
+  localStorage.setItem('dcw_views', count);
+  document.getElementById('view-count').textContent = count.toLocaleString();
+  setInterval(() => {
+    count += Math.floor(Math.random() * 2);
+    localStorage.setItem('dcw_views', count);
+    document.getElementById('view-count').textContent = count.toLocaleString();
+  }, 8000);
+}
+
+// Boot sequence
+async function runBootSequence() {
+  const log = document.getElementById('boot-log');
+  const title = document.getElementById('boot-title');
+  const progressFill = document.getElementById('boot-progress-fill');
+  const pressEl = document.getElementById('boot-press');
+
+  const lines = [
+    { t: 0,    text: 'BORANT CORP ENTERTAINMENT SYSTEMS v7.4.1', cls: '' },
+    { t: 200,  text: 'Copyright (c) The Borant Corporation. All crawlers are property of Borant Corp.', cls: 'warn' },
+    { t: 500,  text: 'Initialising dungeon kernel...', cls: '' },
+    { t: 900,  text: 'Loading floor matrices............... <span class="ok">[OK]</span>', cls: '' },
+    { t: 1300, text: 'Calibrating monster spawn tables.... <span class="ok">[OK]</span>', cls: '' },
+    { t: 1600, text: 'Syncing crawler biometrics.......... <span class="ok">[OK]</span>', cls: '' },
+    { t: 1900, text: 'Checking loot box integrity......... <span class="ok">[OK]</span>', cls: '' },
+    { t: 2100, text: 'WARNING: Crawler death liability waiver not signed', cls: 'warn' },
+    { t: 2300, text: 'Bypassing waiver requirement........ <span class="ok">[OK]</span>', cls: '' },
+    { t: 2600, text: 'Connecting to alien broadcast network <span class="ok">[OK]</span>', cls: '' },
+    { t: 2900, text: 'Loading Princess Donut companion AI. <span class="ok">[OK]</span>', cls: '' },
+    { t: 3100, text: 'Princess Donut AI status: <span class="warn">UNCOOPERATIVE (expected)</span>', cls: '' },
+    { t: 3400, text: 'ERROR: Surface world not found', cls: 'err' },
+    { t: 3600, text: 'Surface world status: <span class="err">DESTROYED</span>. Proceeding.', cls: '' },
+    { t: 3900, text: 'DUNGEON CRAWLER WORLD — ONLINE', cls: 'ok' },
+  ];
+
+  const delay = ms => new Promise(r => setTimeout(r, ms));
+
+  for (const line of lines) {
+    await delay(line.t === 0 ? 0 : lines[lines.indexOf(line)].t - (lines[lines.indexOf(line) - 1]?.t || 0));
+    const p = document.createElement('div');
+    p.innerHTML = line.text;
+    if (line.cls) p.className = line.cls;
+    log.appendChild(p);
+    log.scrollTop = log.scrollHeight;
+    const pct = ((lines.indexOf(line) + 1) / lines.length) * 100;
+    progressFill.style.width = pct + '%';
+  }
+
+  await delay(400);
+  title.classList.add('visible');
+  await delay(900);
+  pressEl.style.display = 'block';
+
+  await new Promise(resolve => {
+    const dismiss = () => { resolve(); }
+    document.addEventListener('keydown', dismiss, { once: true });
+    document.getElementById('boot-screen').addEventListener('click', dismiss, { once: true });
+  });
+
+  document.getElementById('boot-screen').classList.add('fade-out');
+  await delay(900);
+  document.getElementById('boot-screen').remove();
+}
+
+// Animate crawler count
+setInterval(() => {
+  const el = document.getElementById('crawler-count');
+  const current = parseInt(el.textContent.replace(/,/g,''));
+  const change = Math.floor(Math.random() * 8) - 3;
+  const next = Math.max(0, current + change);
+  el.textContent = next.toLocaleString();
+}, 3000);
+
+initViewCounter();
+runBootSequence().then(() => startGame());
+</script>
+</body>
+</html>
