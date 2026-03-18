@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dungeon Crawler Carl</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Orbitron:wght@400;700;900&display=swap');
 
@@ -47,6 +48,75 @@
     background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
     pointer-events: none; z-index: 9999;
   }
+
+  /* Login screen */
+  #login-screen {
+    position: fixed; inset: 0; background: var(--bg);
+    z-index: 99998; display: flex; align-items: center; justify-content: center;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .login-box {
+    background: var(--panel); border: 1px solid var(--border2);
+    border-radius: 6px; padding: 36px 40px; width: 380px; max-width: 95vw;
+  }
+  .login-logo {
+    font-family: 'Orbitron', monospace; font-size: 16px; font-weight: 900;
+    color: var(--red); letter-spacing: 3px; text-align: center; margin-bottom: 4px;
+  }
+  .login-sub {
+    font-size: 9px; color: var(--text-muted); letter-spacing: 3px;
+    text-align: center; margin-bottom: 28px;
+  }
+  .login-tabs {
+    display: flex; gap: 0; margin-bottom: 24px;
+    border: 1px solid var(--border2); border-radius: 3px; overflow: hidden;
+  }
+  .login-tab {
+    flex: 1; background: transparent; border: none; color: var(--text-dim);
+    font-family: 'Share Tech Mono', monospace; font-size: 11px;
+    letter-spacing: 2px; padding: 8px; cursor: pointer; transition: all 0.15s;
+  }
+  .login-tab.active { background: var(--green-dark); color: var(--green); }
+  .login-field { margin-bottom: 14px; }
+  .login-field label {
+    display: block; font-size: 10px; color: var(--text-muted);
+    letter-spacing: 2px; margin-bottom: 5px;
+  }
+  .login-field input {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border2);
+    color: var(--text); font-family: 'Share Tech Mono', monospace;
+    font-size: 13px; padding: 9px 12px; border-radius: 3px; outline: none;
+  }
+  .login-field input:focus { border-color: var(--green); }
+  .login-submit {
+    width: 100%; background: var(--green-dark); border: 1px solid var(--green);
+    color: var(--green); font-family: 'Orbitron', monospace; font-size: 11px;
+    font-weight: 700; padding: 11px; border-radius: 3px; cursor: pointer;
+    letter-spacing: 2px; transition: all 0.15s; margin-top: 6px;
+  }
+  .login-submit:hover { background: var(--green); color: var(--bg); }
+  .login-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+  .login-error {
+    color: var(--red); font-size: 11px; text-align: center;
+    margin-top: 10px; min-height: 16px;
+  }
+  .login-guest {
+    text-align: center; margin-top: 14px; font-size: 10px;
+    color: var(--text-muted); cursor: pointer; letter-spacing: 1px;
+  }
+  .login-guest:hover { color: var(--text-dim); }
+  .save-indicator {
+    position: fixed; bottom: 14px; right: 16px; z-index: 1000;
+    font-family: 'Share Tech Mono', monospace; font-size: 10px;
+    color: var(--green); opacity: 0; transition: opacity 0.3s;
+    letter-spacing: 1px;
+  }
+  .save-indicator.show { opacity: 1; }
+  .user-badge {
+    font-size: 10px; color: var(--text-muted); letter-spacing: 1px;
+    text-align: center; margin-top: 6px; cursor: pointer;
+  }
+  .user-badge:hover { color: var(--red); }
 
   /* Boot screen */
   #boot-screen {
@@ -373,6 +443,32 @@
 <body>
 <div class="scanlines"></div>
 
+<!-- Login Screen -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">DUNGEON CRAWLER WORLD</div>
+    <div class="login-sub">◆ BROUGHT TO YOU BY THE BORANT CORPORATION ◆</div>
+    <div class="login-tabs">
+      <button class="login-tab active" id="tab-login" onclick="switchTab('login')">LOGIN</button>
+      <button class="login-tab" id="tab-register" onclick="switchTab('register')">REGISTER</button>
+    </div>
+    <div class="login-field">
+      <label>EMAIL</label>
+      <input type="email" id="auth-email" placeholder="crawler@dungeon.com" onkeydown="if(event.key==='Enter')submitAuth()">
+    </div>
+    <div class="login-field">
+      <label>PASSWORD</label>
+      <input type="password" id="auth-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')submitAuth()">
+    </div>
+    <button class="login-submit" id="auth-submit" onclick="submitAuth()">ENTER THE DUNGEON ↗</button>
+    <div class="login-error" id="auth-error"></div>
+    <div class="login-guest" onclick="playAsGuest()">▶ PLAY AS GUEST (no save)</div>
+  </div>
+</div>
+
+<!-- Save indicator -->
+<div class="save-indicator" id="save-indicator">💾 SAVED</div>
+
 <!-- Boot Screen -->
 <div id="boot-screen">
   <div class="boot-scanlines"></div>
@@ -395,7 +491,7 @@
       <div style="font-size:10px;color:var(--text-muted);letter-spacing:2px;margin-top:2px;">THE APOCALYPSE EDITION</div>
     </div>
     <div class="crawler-count">
-      ACTIVE CRAWLERS: <strong id="crawler-count">2,847,113</strong><br>
+      ACTIVE CRAWLERS: <strong id="crawler-count">2,847,293</strong><br>
       <span id="crawler-subtitle" style="font-size:10px;">DOWN FROM 8 BILLION</span>
     </div>
   </div>
@@ -472,7 +568,7 @@
 
       <div style="background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:6px 8px;margin-top:8px;text-align:center;font-size:10px;color:var(--text-muted);letter-spacing:1px;">
         👁 VIEWERS<br>
-        <span id="view-count" style="color:var(--green);font-size:15px;font-family:'Orbitron',monospace;font-weight:700;">0</span>
+        <span id="view-count" style="color:var(--green);font-size:15px;font-family:'Orbitron',monospace;font-weight:700;">2,847,293</span>
       </div>
     </div>
 
@@ -870,6 +966,7 @@ async function processAction(actionText, displayText) {
 
   state.loading = false;
   updateUI();
+  saveGameState();
 }
 
 function doAction(type) {
@@ -991,6 +1088,121 @@ async function startGame() {
   updateUI();
 }
 
+// Supabase setup
+const SUPABASE_URL = 'https://jemnrhkywtwgdsqymair.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImplbW5yaGt5d3R3Z2RzcXltYWlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NDk1MjksImV4cCI6MjA4OTQyNTUyOX0.pMC08gQo7JdfDqPR6yBZY7zIMVsROsBVu9kJWRZBsZo';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let currentUser = null;
+let isGuest = false;
+let activeTab = 'login';
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+  document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+  document.getElementById('auth-error').textContent = '';
+  document.getElementById('auth-submit').textContent = tab === 'login' ? 'ENTER THE DUNGEON ↗' : 'CREATE ACCOUNT ↗';
+}
+
+async function submitAuth() {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  const btn = document.getElementById('auth-submit');
+  if (!email || !password) { errEl.textContent = 'Email and password required.'; return; }
+  btn.disabled = true;
+  btn.textContent = 'CONNECTING...';
+  errEl.textContent = '';
+  try {
+    let result;
+    if (activeTab === 'login') {
+      result = await sb.auth.signInWithPassword({ email, password });
+    } else {
+      result = await sb.auth.signUp({ email, password });
+    }
+    if (result.error) {
+      errEl.textContent = result.error.message;
+      btn.disabled = false;
+      switchTab(activeTab);
+      return;
+    }
+    currentUser = result.data.user;
+    if (activeTab === 'register') {
+      errEl.style.color = 'var(--green)';
+      errEl.textContent = 'Account created! Logging you in...';
+      const login = await sb.auth.signInWithPassword({ email, password });
+      currentUser = login.data.user;
+    }
+    await enterGame(true);
+  } catch(e) {
+    errEl.textContent = e.message;
+    btn.disabled = false;
+    switchTab(activeTab);
+  }
+}
+
+async function playAsGuest() {
+  isGuest = true;
+  await enterGame(false);
+}
+
+async function enterGame(loadSave) {
+  document.getElementById('login-screen').remove();
+  if (loadSave && currentUser) {
+    await loadGameState();
+    const badge = document.createElement('div');
+    badge.className = 'user-badge';
+    badge.textContent = `▶ ${currentUser.email} (logout)`;
+    badge.onclick = async () => { await sb.auth.signOut(); location.reload(); };
+    document.querySelector('.companion-box').after(badge);
+  }
+  initViewCounter();
+  runBootSequence().then(() => startGame());
+}
+
+async function saveGameState() {
+  if (!currentUser || isGuest) return;
+  try {
+    await sb.from('game_saves').upsert({
+      user_id: currentUser.id,
+      hp: state.hp, max_hp: state.maxHp,
+      mp: state.mp, max_mp: state.maxMp,
+      xp: state.xp, xp_next: state.xpNext,
+      level: state.level, floor: state.floor,
+      gold: state.gold, str: state.str,
+      dex: state.dex, int: state.int,
+      loot_boxes: state.lootBoxes,
+      attack_count: state.attackCount || 0,
+      char_class: state.charClass,
+      inventory: state.inventory,
+      story_history: state.storyHistory.slice(-10),
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id' });
+    const ind = document.getElementById('save-indicator');
+    ind.classList.add('show');
+    setTimeout(() => ind.classList.remove('show'), 2000);
+  } catch(e) { console.error('Save failed:', e); }
+}
+
+async function loadGameState() {
+  if (!currentUser) return;
+  try {
+    const { data } = await sb.from('game_saves').select('*').eq('user_id', currentUser.id).single();
+    if (!data) return;
+    state.hp = data.hp; state.maxHp = data.max_hp;
+    state.mp = data.mp; state.maxMp = data.max_mp;
+    state.xp = data.xp; state.xpNext = data.xp_next;
+    state.level = data.level; state.floor = data.floor;
+    state.gold = data.gold; state.str = data.str;
+    state.dex = data.dex; state.int = data.int;
+    state.lootBoxes = data.loot_boxes;
+    state.attackCount = data.attack_count || 0;
+    state.charClass = data.char_class;
+    state.inventory = data.inventory || state.inventory;
+    state.storyHistory = data.story_history || [];
+  } catch(e) { console.error('Load failed:', e); }
+}
+
 // Shared viewer/crawler count — both displays stay in sync
 function initViewCounter() {
   const BASE = 2847293;
@@ -1001,8 +1213,8 @@ function initViewCounter() {
 
   function updateBoth() {
     const formatted = count.toLocaleString();
-    document.getElementById('view-count').textContent = formatted;
     document.getElementById('crawler-count').textContent = formatted;
+    document.getElementById('view-count').textContent = formatted;
   }
 
   updateBoth();
@@ -1069,8 +1281,8 @@ async function runBootSequence() {
   document.getElementById('boot-screen').remove();
 }
 
-initViewCounter();
-runBootSequence().then(() => startGame());
+// Login screen is shown on load — enterGame() is called after auth
+// Guest mode calls enterGame(false), logged-in calls enterGame(true)
 </script>
 </body>
 </html>
